@@ -70,9 +70,9 @@ def counter(img_name="test.jpg"):
 
     output = f"Car count: {count}"
     print(output)
-    cv.imshow(output, img)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    # cv.imshow(output, img)
+    # cv.waitKey(0)
+    # cv.destroyAllWindows()
 
     return count
 
