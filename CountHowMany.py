@@ -1,5 +1,4 @@
 import cv2 as cv
-import numpy as np
 
 
 net = cv.dnn.readNetFromONNX("best.onnx")
@@ -13,20 +12,56 @@ def run_model(frame):
     Parameters:
     frame - frame to make detections on
 
-    Output:
+    Output:nump
     detections - the detections that openCV made on the image
     height - height of the image
-    width - width of the image
+    widtheight- width of the image
     """
-    height, width = frame.shape[:2]
-
     blob = cv.dnn.blobFromImage(frame, 1 / 255.0, (640, 640), swapRB=True, crop=False)
     net.setInput(blob)
     detections = net.forward()
-    detections = detections.transpose()
 
-    return detections
+    return detections[0]
 
+def process(detections, confidence_threshold=0.5, nms_threshold=0.45):
+    """
+    Processes detections and creates boxes based on a given
+    confidence threshold.
+
+    Parameters:
+    detections - all of the detections made on a current frame
+    confidence_threshold - the confidence threshold, defaults to 0.5
+    nms_threshold - non max suppression threshold, threshold used to stop box stacking, defaults to 0.45
+
+    Output:
+    boxes - the location of boxes which outline detected objects
+    scores - the confidence scores of each detection
+    """
+    boxes = []
+    scores = []
+    num_detections = detections.shape[1]
+    for i in range(num_detections):
+        x = detections[0, i]
+        y = detections[1, i]
+        width = detections[2, i]
+        height = detections[3, i]
+        confidence = detections[4, i]
+        if confidence > confidence_threshold:
+            x1 = int(x - width/ 2)
+            y1 = int(y - height/ 2)
+            x2 = int(x + width/ 2)
+            y2 = int(y + height/ 2)
+            boxes.append([x1, y1, x2 - x1, y2 - x1])
+            scores.append(float(confidence))
+    indices = cv.dnn.NMSBoxes(boxes, scores, confidence_threshold, nms_threshold)
+    final_boxes = []
+    final_scores = []
+    if len(indices) > 0:
+        for i in indices.flatten():
+            x, y, width, height = boxes[i]
+            final_boxes.append([x, y, x + width, y + height])
+            final_scores.append(scores[i])
+    return final_boxes, final_scores
 
 def counter():
     """
@@ -42,23 +77,12 @@ def counter():
             break
 
         detections = run_model(frame)
-        count = 0
-        for detection in detections:
-            confidence = float(detection[5])
-            if confidence > 0.5:
-                count += 1
-                center_x = int(detection[0])
-                center_y = int(detection[1])
-                w = int(detection[2])
-                h = int(detection[3])
-                angle = float(detection[4])
-
-                rect = ((center_x, center_y), (w, h), np.degrees(angle))
-                box = cv.boxPoints(rect)
-                box = np.intp(box)
-                cv.drawContours(frame, [box], 0, (0,255,0), 2)
-                label = f"{confidence:.2f}"
-                cv.putText(frame, label, (center_x - 20, center_y -10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+        boxes, scores = process(detections)
+        count = len(boxes)
+        for (box, score) in zip(boxes, scores):
+            x1, y1, x2, y2 = box
+            cv.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv.putText(frame, f"{score:.2f}", (x1, y1 - 10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         
         cv.setWindowTitle(window_name, f"Car Detection | Count: {count}")
         cv.imshow(window_name, frame)
