@@ -1,0 +1,28 @@
+# Environment and secrets
+.env
+.env.local
+
+# Output and temp
+output/
+*.jpg
+.tmp_capture.jpg
+.camera_inventory_cache.json
+
+# Weights (large files); keep weights folder via .gitkeep
+weights/*
+!weights/.gitkeep
+*.pt
+*.onnx
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

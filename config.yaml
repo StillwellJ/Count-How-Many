@@ -1,0 +1,57 @@
+# TripCheck crash detection - configuration
+# Edit paths and severity mapping to match your YOLO weights and class names.
+
+# Path to your trained YOLOv8 weights (.pt file)
+weights_path: "weights/best.pt"
+
+# Minimum confidence (0-1) to count a detection as valid. Lower = fewer false negatives, more false positives.
+confidence_threshold: 0.02
+
+# Minimum confidence passed to YOLO predict (0-1). Keep low (e.g. 0.01) so the model returns
+# all detections; we then filter by confidence_threshold above. Prevents missing weak-but-real hits.
+predict_conf_min: 0.01
+
+# Map your model's class indices or names to output folder names.
+# IMPORTANT: If you get false negatives (crash image -> no_crash), check your model's class order.
+# If your model has 0=crash and 1=no_crash, set 0 to a severity_* folder and 1 to no_crash.
+# If your model has: 0=no_crash, 1=minor, 2=moderate, 3=severe, use:
+#   class 0 -> image goes to output/no_crash/
+#   class 1 -> output/severity_minor/
+#   class 2 -> output/severity_moderate/
+#   class 3 -> output/severity_severe/
+# When no crash class is detected above confidence_threshold, image goes to no_crash.
+severity_folders:
+  # by class index (integer)
+  0: "no_crash"
+  1: "severity_minor"
+  2: "severity_moderate"
+  3: "severity_severe"
+  # You can also use class names if your model has names (uncomment and adjust):
+  # "crash_minor": "severity_minor"
+  # "crash_major": "severity_major"
+
+# If true, when multiple crash classes are detected, use the highest severity
+# (largest index in severity_folders). If false, use the first detected.
+use_highest_severity: true
+
+# Set to true to log every detection (class_id, name, conf, folder) so you can verify
+# severity_folders match your model and fix false negatives.
+log_detections: false
+
+# Base directory for saving images (created if missing)
+output_dir: "output"
+
+# Filename format: {camera_name}_{timestamp}.jpg
+# Example: "I-5 at MP 42_20260225_143022.jpg"
+# If true, crash images also include severity in the name: {camera_name}_{timestamp}_{severity_folder}.jpg
+# Example: "I-5 at MP 42_20260225_143022_severity_minor.jpg"
+filename_include_severity: true
+
+# How often to poll each camera (seconds). Lower = more API/image requests.
+poll_interval_seconds: 60
+
+# Request timeout for fetching camera images (seconds)
+image_fetch_timeout: 15
+
+# How often to refresh the camera inventory from TripCheck API (seconds). API refreshes ~24h.
+inventory_refresh_seconds: 86400
