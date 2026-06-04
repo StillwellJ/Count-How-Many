@@ -1,11 +1,24 @@
 # TripCheck crash detection - configuration
 # Edit paths and severity mapping to match your YOLO weights and class names.
 
-# Path to your trained YOLOv8 weights (.pt file)
-weights_path: "weights/best.pt"
+# Path to your trained crash weights (.pt).
+# Use best.pt (3-class YOLO-cls: moderate-accident / no-accident / severe-accident).
+# Do NOT use weights/best.pt unless you replace it — that file is an unrelated ImageNet model.
+weights_path: "best.pt"
+
+# Crop TripCheck composite frames before inference (fractions 0-1 of width/height).
+# Typical ODOT/TripCheck JPEGs: white/grey header ~12%, grey+black footer ~18%.
+# Tune if your API images differ. Set enabled: false to run on the full frame.
+# Overlays inside the camera rectangle (timestamp, logo) are kept unless you add margins.
+inference_crop:
+  enabled: true
+  top: 0.12
+  bottom: 0.18
+  left: 0.0
+  right: 0.0
 
 # Minimum confidence (0-1) to count a detection as valid. Lower = fewer false negatives, more false positives.
-confidence_threshold: 0.02
+confidence_threshold: 0.99
 
 # Minimum confidence passed to YOLO predict (0-1). Keep low (e.g. 0.01) so the model returns
 # all detections; we then filter by confidence_threshold above. Prevents missing weak-but-real hits.
@@ -21,14 +34,14 @@ predict_conf_min: 0.01
 #   class 3 -> output/severity_severe/
 # When no crash class is detected above confidence_threshold, image goes to no_crash.
 severity_folders:
-  # by class index (integer)
-  0: "no_crash"
-  1: "severity_minor"
-  2: "severity_moderate"
-  3: "severity_severe"
-  # You can also use class names if your model has names (uncomment and adjust):
-  # "crash_minor": "severity_minor"
-  # "crash_major": "severity_major"
+  # Trained YOLO-cls model (best.pt) — by class index
+  0: "severity_moderate"
+  1: "no_crash"
+  2: "severity_severe"
+  # Same mapping by class name (used if index lookup fails)
+  "moderate-accident": "severity_moderate"
+  "no-accident": "no_crash"
+  "severe-accident": "severity_severe"
 
 # If true, when multiple crash classes are detected, use the highest severity
 # (largest index in severity_folders). If false, use the first detected.
@@ -36,7 +49,7 @@ use_highest_severity: true
 
 # Set to true to log every detection (class_id, name, conf, folder) so you can verify
 # severity_folders match your model and fix false negatives.
-log_detections: false
+log_detections: true
 
 # Base directory for saving images (created if missing)
 output_dir: "output"

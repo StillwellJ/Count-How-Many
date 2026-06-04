@@ -1,7 +1,7 @@
 """
 TripCheck crash detection pipeline.
-Continuously polls all TripCheck cameras, runs YOLOv8 crash detection,
-and saves images to folders by result: no_crash or by severity.
+Continuously polls all TripCheck cameras, runs YOLO (e.g. YOLO11) crash detection
+on the cropped camera region, and saves images to folders by result: no_crash or by severity.
 
 Test with one cycle and limited cameras:
   python main.py --test
@@ -58,22 +58,11 @@ def run_one_cycle(
         if not image_bytes:
             continue
 
-        tmp_path = Path(output_dir).parent / ".tmp_capture.jpg"
         try:
-            tmp_path.write_bytes(image_bytes)
-        except OSError:
-            continue
-
-        try:
-            folder_name = detector.predict(str(tmp_path))
+            folder_name = detector.predict(image_bytes)
         except Exception as e:
             print(f"  {device_name}: inference error - {e}")
             folder_name = "no_crash"
-        finally:
-            try:
-                tmp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
 
         dest_dir = Path(output_dir) / folder_name
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -102,7 +91,7 @@ def run_one_cycle(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="TripCheck crash detection – poll cameras and run YOLOv8.")
+    parser = argparse.ArgumentParser(description="TripCheck crash detection – poll cameras and run YOLO inference.")
     parser.add_argument("--test", action="store_true", help="Run one cycle then exit (for testing).")
     parser.add_argument("--cameras", type=int, default=None, metavar="N", help="Limit to first N cameras per cycle (for quick tests).")
     args = parser.parse_args()
@@ -114,7 +103,7 @@ def main() -> None:
     if not weights_path or not Path(weights_path).is_file():
         print(
             f"Error: Weights file not found: {weights_path}. "
-            "Place your YOLOv8 .pt weights and set weights_path in config.yaml or YOLO_WEIGHTS_PATH in .env",
+            "Place your trained YOLO .pt weights (e.g. YOLO11) and set weights_path in config.yaml or YOLO_WEIGHTS_PATH in .env",
             file=sys.stderr,
         )
         sys.exit(1)
