@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TripCheck Live Inference</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 1rem;
+      padding: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 960px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .viewer {
+      position: relative;
+      background: #000;
+      min-height: 420px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .viewer img {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      display: block;
+    }
+
+    .viewer .placeholder {
+      color: var(--muted);
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .result-bar {
+      padding: 1.25rem 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .camera-name {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .verdict {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .verdict.no_crash { color: var(--ok); }
+    .verdict.severity_moderate { color: var(--warn); }
+    .verdict.severity_severe { color: var(--danger); }
+    .verdict.severity_minor { color: var(--warn); }
+
+    .destination {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .destination code {
+      background: var(--bg);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .confidence-row span { font-size: 0.875rem; color: var(--muted); min-width: 5rem; }
+
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .prob-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .prob-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .prob-item .mini-bar {
+      grid-column: 1 / -1;
+      height: 4px;
+      background: var(--bg);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .prob-item .mini-fill {
+      height: 100%;
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .sidebar h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 1rem 1rem 0.5rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      padding: 0 1rem 1rem;
+    }
+
+    .stat {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+
+    .stat .label { font-size: 0.7rem; color: var(--muted); }
+    .stat .value { font-size: 1.25rem; font-weight: 600; margin-top: 0.15rem; }
+
+    .history {
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+    }
+
+    .history-item {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .history-item:hover { background: var(--bg); }
+
+    .history-item.active { background: rgba(59, 130, 246, 0.12); }
+
+    .history-item .hi-camera {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-item .hi-verdict {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-top: 0.15rem;
+    }
+
+    .history-item.crash .hi-verdict { color: var(--danger); }
+    .history-item.ok .hi-verdict { color: var(--ok); }
+
+    .timestamp { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; }
+
+    .flash {
+      animation: flash 0.6s ease;
+    }
+
+    @keyframes flash {
+      0% { box-shadow: inset 0 0 0 3px var(--accent); }
+      100% { box-shadow: inset 0 0 0 0 transparent; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TripCheck Live Inference</h1>
+    <div class="status-pill">
+      <span class="dot" id="connDot"></span>
+      <span id="statusText">Connecting…</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="viewer" id="viewer">
+        <div class="placeholder">Waiting for first camera frame…</div>
+      </div>
+      <div class="result-bar" id="resultBar">
+        <div class="camera-name" id="cameraName">—</div>
+        <div class="verdict no_crash" id="verdict">—</div>
+        <div class="destination">
+          Would save to: <code id="outputPath">output/no_crash/</code>
+        </div>
+        <div class="confidence-row">
+          <span>Confidence</span>
+          <div class="bar-track"><div class="bar-fill" id="confBar" style="width:0%"></div></div>
+          <span id="confPct">0%</span>
+        </div>
+        <div class="prob-list" id="probList"></div>
+      </div>
+    </section>
+
+    <aside class="panel sidebar">
+      <h2>Cycle stats</h2>
+      <div class="stats">
+        <div class="stat"><div class="label">Cycle</div><div class="value" id="statCycle">—</div></div>
+        <div class="stat"><div class="label">Processed</div><div class="value" id="statProcessed">0</div></div>
+        <div class="stat"><div class="label">Crashes</div><div class="value" id="statCrashes">0</div></div>
+        <div class="stat"><div class="label">Cameras</div><div class="value" id="statTotal">—</div></div>
+      </div>
+      <h2>Recent</h2>
+      <div class="history" id="history"></div>
+    </aside>
+  </main>
+
+  <script>
+    const viewer = document.getElementById("viewer");
+    const historyEl = document.getElementById("history");
+    const connDot = document.getElementById("connDot");
+    const statusText = document.getElementById("statusText");
+    const recentEvents = [];
+    const MAX_HISTORY = 40;
+
+    function pct(n) {
+      return Math.round((n || 0) * 100) + "%";
+    }
+
+    function updateStatus(data) {
+      statusText.textContent = data.message || "Running";
+      if (data.cycle != null) document.getElementById("statCycle").textContent = data.cycle;
+      if (data.processed != null) document.getElementById("statProcessed").textContent = data.processed;
+      if (data.crash_count != null) document.getElementById("statCrashes").textContent = data.crash_count;
+      if (data.total_cameras != null) document.getElementById("statTotal").textContent = data.total_cameras;
+    }
+
+    function showInference(ev, fromHistory = false) {
+      viewer.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = ev.image_data_url;
+      img.alt = ev.camera;
+      viewer.appendChild(img);
+      if (!fromHistory) viewer.classList.add("flash");
+      setTimeout(() => viewer.classList.remove("flash"), 600);
+
+      document.getElementById("cameraName").textContent = ev.camera + " · " + (ev.timestamp || "");
+      const verdict = document.getElementById("verdict");
+      verdict.textContent = ev.folder_label || ev.folder;
+      verdict.className = "verdict " + (ev.folder || "no_crash");
+      document.getElementById("outputPath").textContent = ev.output_path || ("output/" + ev.folder + "/");
+
+      const conf = ev.confidence || 0;
+      document.getElementById("confBar").style.width = pct(conf);
+      document.getElementById("confPct").textContent = pct(conf);
+
+      const probList = document.getElementById("probList");
+      probList.innerHTML = "";
+      const probs = ev.probabilities || {};
+      Object.entries(probs)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([name, val]) => {
+          const row = document.createElement("div");
+          row.className = "prob-item";
+          row.innerHTML =
+            `<span>${name}</span><span>${pct(val)}</span>` +
+            `<div class="mini-bar"><div class="mini-fill" style="width:${pct(val)}"></div></div>`;
+          probList.appendChild(row);
+        });
+
+      if (ev.class_name) {
+        const note = document.createElement("div");
+        note.style.cssText = "font-size:0.8rem;color:var(--muted);margin-top:0.5rem";
+        note.textContent = "Predicted class: " + ev.class_name;
+        probList.appendChild(note);
+      }
+    }
+
+    function addHistory(ev) {
+      recentEvents.unshift(ev);
+      if (recentEvents.length > MAX_HISTORY) recentEvents.pop();
+      renderHistory();
+    }
+
+    function renderHistory() {
+      historyEl.innerHTML = "";
+      recentEvents.forEach((ev, idx) => {
+        const item = document.createElement("div");
+        item.className = "history-item " + (ev.is_crash ? "crash" : "ok") + (idx === 0 ? " active" : "");
+        item.innerHTML =
+          `<div class="hi-camera">${ev.camera}</div>` +
+          `<div class="hi-verdict">${ev.folder_label || ev.folder}</div>` +
+          `<div class="timestamp">${ev.timestamp || ""} · ${pct(ev.confidence)}</div>`;
+        item.onclick = () => {
+          document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
+          item.classList.add("active");
+          showInference(ev, true);
+        };
+        historyEl.appendChild(item);
+      });
+    }
+
+    function connect() {
+      const es = new EventSource("/stream");
+      connDot.classList.add("live");
+      statusText.textContent = "Connected — waiting for frames";
+
+      es.onmessage = (msg) => {
+        let data;
+        try { data = JSON.parse(msg.data); } catch { return; }
+
+        if (data.type === "status") {
+          updateStatus(data);
+          return;
+        }
+        if (data.type === "inference") {
+          showInference(data);
+          addHistory(data);
+          return;
+        }
+      };
+
+      es.onerror = () => {
+        connDot.classList.remove("live");
+        statusText.textContent = "Disconnected — reconnecting…";
+        es.close();
+        setTimeout(connect, 3000);
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>
